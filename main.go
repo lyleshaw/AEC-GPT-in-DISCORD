@@ -86,6 +86,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	if m.ChannelID != "1107148758887710760" && m.ChannelID != "1108401368370249728" {
+		return
+	}
+
 	logger.Infof("Message Received: ID %s | Content %s | Author %s | Channel %s", m.ID, m.Content, m.Author, m.ChannelID)
 
 	// If the message is "ping" reply with "Pong!"
