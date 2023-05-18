@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/bytedance/gopkg/util/logger"
+	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/viper"
 	"io"
 	"log"
@@ -13,11 +15,21 @@ import (
 	"syscall"
 )
 
+const (
+	BotChannel          = "1107148758887710760"
+	BotTestChannel      = "1108401368370249728"
+	BotTestSubChannel   = "1108674815889522719"
+	BotBardChannel      = "1108670964952211527"
+	BotClaudeChannel    = "1108671068383744000"
+	BotOpenaiTDFChannel = "1108671217688379403"
+)
+
 var (
 	BaseUrl       string
 	InitialPrompt string
 	DiscordToken  string
 	ApiKey        string
+	PalmApiKey    string
 )
 
 func Init() {
@@ -37,6 +49,11 @@ func Init() {
 		log.Fatal(err)
 	}
 	BaseUrl = viper.GetString("BASE_URL")
+
+	if err := viper.BindEnv("PALM_API_KEY"); err != nil {
+		log.Fatal(err)
+	}
+	PalmApiKey = viper.GetString("PALM_API_KEY")
 
 	if err := viper.BindEnv("INITIAL_PROMPT"); err != nil {
 		log.Fatal(err)
@@ -86,7 +103,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if m.ChannelID != "1107148758887710760" && m.ChannelID != "1108401368370249728" {
+	if m.ChannelID != BotChannel &&
+		m.ChannelID != BotTestChannel &&
+		m.ChannelID != BotBardChannel &&
+		m.ChannelID != BotClaudeChannel &&
+		m.ChannelID != BotOpenaiTDFChannel &&
+		m.ChannelID != BotTestSubChannel {
 		return
 	}
 
@@ -107,12 +129,28 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	if m.ChannelID == BotChannel || m.ChannelID == BotTestChannel {
+		ChatResponse(ctx, client, s, m)
+	}
+
+	if m.ChannelID == BotTestSubChannel || m.ChannelID == BotBardChannel {
+		resp, err := CompletionWithSessionByPaLM(m.ChannelID, m.Content)
+		if err != nil {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "Something went wrong with CompletionWithSessionByPaLM. Please try again later.")
+			logger.Infof("Something went wrong with CompletionWithSessionByPaLM. Please try again later.")
+			return
+		}
+		_, _ = s.ChannelMessageSend(m.ChannelID, resp)
+	}
+}
+
+func ChatResponse(ctx context.Context, client *openai.Client, s *discordgo.Session, m *discordgo.MessageCreate) {
 	message, _ := s.ChannelMessageSend(m.ChannelID, "Typing...")
 
-	resp, err := CompletionWithSessionWithStream(ctx, client, m.ChannelID, m.Content)
+	resp, err := CompletionWithSessionWithStreamByOpenAI(ctx, client, m.ChannelID, m.Content)
 	if err != nil {
-		_, _ = s.ChannelMessageSend(m.ChannelID, "Something went wrong with CompletionWithSessionWithStream. Please try again later.")
-		logger.Infof("Something went wrong with CompletionWithSessionWithStream. Please try again later.")
+		_, _ = s.ChannelMessageSend(m.ChannelID, "Something went wrong with CompletionWithSessionWithStreamByOpenAI. Please try again later.")
+		logger.Infof("Something went wrong with CompletionWithSessionWithStreamByOpenAI. Please try again later.")
 		return
 	}
 	defer resp.Close()
@@ -144,7 +182,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 	}
-	AddMessage(m.ChannelID, finalResp)
+	AddMessageToOpenAI(m.ChannelID, finalResp)
 	logger.Infof("final response: %s", finalResp)
 	logger.Infof("all count: %d", count)
 	_, err = s.ChannelMessageEdit(m.ChannelID, message.ID, finalResp)

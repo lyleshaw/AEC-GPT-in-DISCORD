@@ -7,9 +7,9 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-var MESSAGE_QUEUE map[string][]openai.ChatCompletionMessage
+var MESSAGE_QUEUE_OPENAI map[string][]openai.ChatCompletionMessage
 
-func CompletionWithoutSession(ctx context.Context, client *openai.Client, prompt string) (string, error) {
+func CompletionWithoutSessionByOpenAI(ctx context.Context, client *openai.Client, prompt string) (string, error) {
 	resp, err := client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -31,7 +31,7 @@ func CompletionWithoutSession(ctx context.Context, client *openai.Client, prompt
 	return resp.Choices[0].Message.Content, nil
 }
 
-func CompletionWithoutSessionWithStream(ctx context.Context, client *openai.Client, prompt string) (*openai.ChatCompletionStream, error) {
+func CompletionWithoutSessionWithStreamByOpenAI(ctx context.Context, client *openai.Client, prompt string) (*openai.ChatCompletionStream, error) {
 	req := openai.ChatCompletionRequest{
 		Model:     openai.GPT3Dot5Turbo,
 		MaxTokens: 2048,
@@ -51,8 +51,8 @@ func CompletionWithoutSessionWithStream(ctx context.Context, client *openai.Clie
 	return stream, nil
 }
 
-func CompletionWithSession(ctx context.Context, client *openai.Client, conversationID string, prompt string) (string, error) {
-	messages := AddMessage(conversationID, prompt)
+func CompletionWithSessionByOpenAI(ctx context.Context, client *openai.Client, conversationID string, prompt string) (string, error) {
+	messages := AddMessageToOpenAI(conversationID, prompt)
 	resp, err := client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -66,13 +66,13 @@ func CompletionWithSession(ctx context.Context, client *openai.Client, conversat
 		return "", err
 	}
 
-	AddMessage(conversationID, resp.Choices[0].Message.Content)
+	AddMessageToOpenAI(conversationID, resp.Choices[0].Message.Content)
 	return resp.Choices[0].Message.Content, nil
 }
 
-// CompletionWithSessionWithStream should call AddMessage after using stream
-func CompletionWithSessionWithStream(ctx context.Context, client *openai.Client, conversationID string, prompt string) (*openai.ChatCompletionStream, error) {
-	messages := AddMessage(conversationID, prompt)
+// CompletionWithSessionWithStreamByOpenAI should call AddMessageToOpenAI after using stream
+func CompletionWithSessionWithStreamByOpenAI(ctx context.Context, client *openai.Client, conversationID string, prompt string) (*openai.ChatCompletionStream, error) {
+	messages := AddMessageToOpenAI(conversationID, prompt)
 	req := openai.ChatCompletionRequest{
 		Model:     openai.GPT3Dot5Turbo,
 		MaxTokens: 2048,
@@ -87,27 +87,27 @@ func CompletionWithSessionWithStream(ctx context.Context, client *openai.Client,
 	return stream, nil
 }
 
-func AddMessage(conversationID string, prompt string) []openai.ChatCompletionMessage {
-	if MESSAGE_QUEUE == nil {
-		MESSAGE_QUEUE = make(map[string][]openai.ChatCompletionMessage)
+func AddMessageToOpenAI(conversationID string, prompt string) []openai.ChatCompletionMessage {
+	if MESSAGE_QUEUE_OPENAI == nil {
+		MESSAGE_QUEUE_OPENAI = make(map[string][]openai.ChatCompletionMessage)
 	}
-	if _, ok := MESSAGE_QUEUE[conversationID]; !ok {
-		MESSAGE_QUEUE[conversationID] = []openai.ChatCompletionMessage{
+	if _, ok := MESSAGE_QUEUE_OPENAI[conversationID]; !ok {
+		MESSAGE_QUEUE_OPENAI[conversationID] = []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleUser,
 				Content: InitialPrompt,
 			},
 		}
 	}
-	if len(MESSAGE_QUEUE[conversationID]) > 4 {
-		MESSAGE_QUEUE[conversationID] = MESSAGE_QUEUE[conversationID][1:]
+	if len(MESSAGE_QUEUE_OPENAI[conversationID]) > 4 {
+		MESSAGE_QUEUE_OPENAI[conversationID] = MESSAGE_QUEUE_OPENAI[conversationID][1:]
 	}
 
-	MESSAGE_QUEUE[conversationID] = append(MESSAGE_QUEUE[conversationID], openai.ChatCompletionMessage{
+	MESSAGE_QUEUE_OPENAI[conversationID] = append(MESSAGE_QUEUE_OPENAI[conversationID], openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,
 		Content: prompt,
 	})
-	return MESSAGE_QUEUE[conversationID]
+	return MESSAGE_QUEUE_OPENAI[conversationID]
 }
 
 func GetClient() (context.Context, *openai.Client, error) {
