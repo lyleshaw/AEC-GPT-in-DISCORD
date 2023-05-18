@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/bwmarrin/discordgo v0.27.1
+	github.com/bytedance/gopkg v0.0.0-20230512060433-7f5f1dee0b1e
 	github.com/sashabaranov/go-openai v1.9.4
 	github.com/spf13/viper v1.15.0
 )

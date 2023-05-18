@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
+	"github.com/bytedance/gopkg/util/logger"
 	"github.com/spf13/viper"
 	"io"
 	"log"
@@ -26,7 +27,7 @@ func Init() {
 		log.Fatal(err)
 	}
 	DiscordToken = viper.GetString("DiscordToken")
-	
+
 	if err := viper.BindEnv("ApiKey"); err != nil {
 		log.Fatal(err)
 	}
@@ -41,6 +42,9 @@ func Init() {
 		log.Fatal(err)
 	}
 	InitialPrompt = viper.GetString("InitialPrompt")
+	if InitialPrompt == "" {
+		InitialPrompt = "You are a professional assistant"
+	}
 }
 
 func main() {
@@ -66,13 +70,13 @@ func main() {
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
+	logger.Infof("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 
 	// Cleanly close down the Discord session.
-	dg.Close()
+	_ = dg.Close()
 }
 
 // This function will be called (due to AddHandler above) every time a new
@@ -81,6 +85,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
+
+	logger.Infof("Message Received: ID %s | Content %s | Author %s | Channel %s", m.ID, m.Content, m.Author, m.ChannelID)
 
 	// If the message is "ping" reply with "Pong!"
 	if m.Content == "ping" || m.Content == "Ping" {
@@ -93,6 +99,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	ctx, client, err := GetClient()
 	if err != nil {
 		_, _ = s.ChannelMessageSend(m.ChannelID, "Something went wrong with GetClient. Please try again later.")
+		logger.Infof("Something went wrong with GetClient. Please try again later.")
 		return
 	}
 
@@ -101,11 +108,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	resp, err := CompletionWithSessionWithStream(ctx, client, m.ChannelID, m.Content)
 	if err != nil {
 		_, _ = s.ChannelMessageSend(m.ChannelID, "Something went wrong with CompletionWithSessionWithStream. Please try again later.")
+		logger.Infof("Something went wrong with CompletionWithSessionWithStream. Please try again later.")
 		return
 	}
 	defer resp.Close()
 
 	finalResp := ""
+	count := 0
 	for {
 		response, err := resp.Recv()
 		if errors.Is(err, io.EOF) {
@@ -114,12 +123,16 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		if err != nil {
 			_, _ = s.ChannelMessageSend(m.ChannelID, "Something went wrong with Stream. Please try again later.")
-			fmt.Printf("\nStream error: %v\n", err)
+			logger.Errorf("Stream error: %v", err)
 			return
 		}
 
 		finalResp += response.Choices[0].Delta.Content
-		_, err = s.ChannelMessageEdit(m.ChannelID, message.ID, finalResp+"\nTyping...")
+		if count%10 == 0 {
+			_, err = s.ChannelMessageEdit(m.ChannelID, message.ID, finalResp+"\nTyping...")
+			logger.Infof("streaming count: %d", count)
+		}
+		count++
 		if err != nil {
 			message, _ = s.ChannelMessageSend(m.ChannelID, "Something went wrong with Edit. Please try again later.")
 			fmt.Printf("Edit error: %v\n", err)
@@ -128,5 +141,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 	AddMessage(m.ChannelID, finalResp)
+	logger.Infof("final response: %s", finalResp)
+	logger.Infof("all count: %d", count)
 	_, err = s.ChannelMessageEdit(m.ChannelID, message.ID, finalResp)
 }

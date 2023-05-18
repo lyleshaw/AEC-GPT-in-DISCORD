@@ -34,7 +34,7 @@ func CompletionWithoutSession(ctx context.Context, client *openai.Client, prompt
 func CompletionWithoutSessionWithStream(ctx context.Context, client *openai.Client, prompt string) (*openai.ChatCompletionStream, error) {
 	req := openai.ChatCompletionRequest{
 		Model:     openai.GPT3Dot5Turbo,
-		MaxTokens: 20,
+		MaxTokens: 2048,
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleUser,
@@ -75,7 +75,7 @@ func CompletionWithSessionWithStream(ctx context.Context, client *openai.Client,
 	messages := AddMessage(conversationID, prompt)
 	req := openai.ChatCompletionRequest{
 		Model:     openai.GPT3Dot5Turbo,
-		MaxTokens: 20,
+		MaxTokens: 2048,
 		Messages:  messages,
 		Stream:    true,
 	}
@@ -99,6 +99,10 @@ func AddMessage(conversationID string, prompt string) []openai.ChatCompletionMes
 			},
 		}
 	}
+	if len(MESSAGE_QUEUE[conversationID]) > 4 {
+		MESSAGE_QUEUE[conversationID] = MESSAGE_QUEUE[conversationID][1:]
+	}
+
 	MESSAGE_QUEUE[conversationID] = append(MESSAGE_QUEUE[conversationID], openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,
 		Content: prompt,
