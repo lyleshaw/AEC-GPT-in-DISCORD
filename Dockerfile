@@ -19,7 +19,4 @@ FROM --platform=linux/amd64 alpine:latest
 WORKDIR /
 COPY --from=builder /builder/server .
 
-WORKDIR /
-COPY --from=builder /builder/.env .env
-
 CMD ["./server"]
