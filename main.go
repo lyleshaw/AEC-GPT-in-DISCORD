@@ -23,25 +23,25 @@ var (
 func Init() {
 	viper.SetConfigFile(".env")
 	_ = viper.ReadInConfig()
-	if err := viper.BindEnv("DiscordToken"); err != nil {
+	if err := viper.BindEnv("DISCORD_TOKEN"); err != nil {
 		log.Fatal(err)
 	}
-	DiscordToken = viper.GetString("DiscordToken")
+	DiscordToken = viper.GetString("DISCORD_TOKEN")
 
-	if err := viper.BindEnv("ApiKey"); err != nil {
+	if err := viper.BindEnv("API_KEY"); err != nil {
 		log.Fatal(err)
 	}
-	ApiKey = viper.GetString("ApiKey")
+	ApiKey = viper.GetString("API_KEY")
 
-	if err := viper.BindEnv("BaseUrl"); err != nil {
+	if err := viper.BindEnv("BASE_URL"); err != nil {
 		log.Fatal(err)
 	}
-	BaseUrl = viper.GetString("BaseUrl")
+	BaseUrl = viper.GetString("BASE_URL")
 
-	if err := viper.BindEnv("InitialPrompt"); err != nil {
+	if err := viper.BindEnv("INITIAL_PROMPT"); err != nil {
 		log.Fatal(err)
 	}
-	InitialPrompt = viper.GetString("InitialPrompt")
+	InitialPrompt = viper.GetString("INITIAL_PROMPT")
 	if InitialPrompt == "" {
 		InitialPrompt = "You are a professional assistant"
 	}
