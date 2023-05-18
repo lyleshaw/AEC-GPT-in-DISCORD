@@ -12,15 +12,12 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN go build -o ./server ./main.go
+RUN go build -o ./server .
 
 FROM --platform=linux/amd64 alpine:latest
 
 WORKDIR /
 COPY --from=builder /builder/server .
-
-WORKDIR /
-COPY --from=builder /builder/common.yaml common.yaml
 
 WORKDIR /
 COPY --from=builder /builder/.env .env
