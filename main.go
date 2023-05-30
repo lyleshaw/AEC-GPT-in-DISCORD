@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/bytedance/gopkg/util/logger"
+	"github.com/madebywelch/anthropic-go/pkg/anthropic"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/viper"
 	"io"
@@ -25,11 +26,12 @@ const (
 )
 
 var (
-	BaseUrl       string
-	InitialPrompt string
-	DiscordToken  string
-	ApiKey        string
-	PalmApiKey    string
+	BaseUrl         string
+	InitialPrompt   string
+	DiscordToken    string
+	ApiKey          string
+	PalmApiKey      string
+	AnthropicApiKey string
 )
 
 func Init() {
@@ -54,6 +56,11 @@ func Init() {
 		log.Fatal(err)
 	}
 	PalmApiKey = viper.GetString("PALM_API_KEY")
+
+	if err := viper.BindEnv("ANTHROPIC_API_KEY"); err != nil {
+		log.Fatal(err)
+	}
+	AnthropicApiKey = viper.GetString("ANTHROPIC_API_KEY")
 
 	if err := viper.BindEnv("INITIAL_PROMPT"); err != nil {
 		log.Fatal(err)
@@ -141,6 +148,32 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 		_, _ = s.ChannelMessageSend(m.ChannelID, resp)
+	}
+
+	if m.ChannelID == BotClaudeChannel {
+		if m.Content == "!reset" {
+			MESSAGE_QUEUE_CLAUDE[m.ChannelID] = ""
+			_, _ = s.ChannelMessageSend(m.ChannelID, "Session Reset!")
+			return
+		}
+
+		c, err := GetClaudeClient()
+		if err != nil {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "Something went wrong with GetClaudeClient. Please try again later.")
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		message, _ := s.ChannelMessageSend(m.ChannelID, "Typing...")
+
+		respClaude := ""
+		var callback anthropic.StreamCallback = func(resp *anthropic.CompletionResponse) error {
+			_, err = s.ChannelMessageEdit(m.ChannelID, message.ID, resp.Completion+"\nTyping...")
+			respClaude = resp.Completion
+			return nil
+		}
+		_ = CompletionWithSessionWithStreamByClaude(c, m.ChannelID, m.Content, callback)
+		AddMessageToClaude(m.ChannelID, fmt.Sprintf("\n\nHuman: %s\n\nAssistant: %s", m.Content, respClaude))
+		_, err = s.ChannelMessageEdit(m.ChannelID, message.ID, respClaude)
 	}
 }
 

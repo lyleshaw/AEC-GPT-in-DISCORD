@@ -94,7 +94,7 @@ func AddMessageToPaLM(conversationID string, prompt string, author string) Messa
 	return resp
 }
 
-func main_() {
+func main__() {
 	Init()
 	resp, err := CompletionWithSessionByPaLM("test", "Hello")
 	if err != nil {
